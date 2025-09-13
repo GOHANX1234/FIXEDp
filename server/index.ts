@@ -17,7 +17,7 @@ const isProduction = process.env.NODE_ENV === "production";
 
 // Define origins for CORS
 const corsOrigin = isProduction
-  ? [process.env.CORS_ORIGIN || "https://aestrialhack.onrender.com"] // Allow configurable origin in production
+  ? [process.env.CORS_ORIGIN || "https://fixpanel.onrender.com/"] // Allow configurable origin in production
   : true; // Allow all origins in development
 
 // Apply CORS middleware
