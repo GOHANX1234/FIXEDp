@@ -156,3 +156,52 @@ export const addCreditsSchema = z.object({
 });
 
 export type AddCredits = z.infer<typeof addCreditsSchema>;
+
+// Online update table
+export const onlineUpdates = pgTable("online_updates", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  buttonText: text("button_text"),
+  linkUrl: text("link_url"),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Base schema without refinement for partial operations
+const baseOnlineUpdateSchema = z.object({
+  title: z.string().min(1, "Title is required").max(100, "Title must be less than 100 characters"),
+  message: z.string().min(1, "Message is required").max(500, "Message must be less than 500 characters"),
+  buttonText: z.string().max(50, "Button text must be less than 50 characters").optional(),
+  linkUrl: z.string().url("Must be a valid URL").optional(),
+  isActive: z.boolean().default(true),
+});
+
+export const insertOnlineUpdateSchema = baseOnlineUpdateSchema.refine(data => {
+  // If buttonText is provided, linkUrl should also be provided
+  if (data.buttonText && !data.linkUrl) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Link URL is required when button text is provided",
+  path: ["linkUrl"]
+});
+
+export const updateOnlineUpdateSchema = baseOnlineUpdateSchema.partial().extend({
+  id: z.number().positive(),
+}).refine(data => {
+  // If buttonText is provided, linkUrl should also be provided (only when both are present)
+  if (data.buttonText && !data.linkUrl) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Link URL is required when button text is provided",
+  path: ["linkUrl"]
+});
+
+export type OnlineUpdate = typeof onlineUpdates.$inferSelect;
+export type InsertOnlineUpdate = z.infer<typeof insertOnlineUpdateSchema>;
+export type UpdateOnlineUpdate = z.infer<typeof updateOnlineUpdateSchema>;

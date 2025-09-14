@@ -2,6 +2,15 @@
 
 DEXX-TER is a robust license management system designed for game hack resellers. The application provides comprehensive key generation, administration, and tracking capabilities with role-based access control supporting both administrators and resellers. The system features a modern React frontend with a clean, responsive dark-themed UI, while the backend handles authentication, key management, and data persistence through JSON file storage.
 
+## Recent Changes (September 2025)
+
+- **Online Updates Feature**: Implemented complete online update management system allowing admins to send update messages to app users with optional action buttons and links. Features include:
+  - Mobile-responsive admin panel for creating, editing, and managing updates
+  - Public API endpoint (/api/updates) for app users to fetch active updates
+  - Complete CRUD operations with form validation and real-time UI updates
+  - Comprehensive API documentation with usage examples
+  - Enhanced security with CSRF protection and secure session management
+
 # User Preferences
 
 Preferred communication style: Simple, everyday language.

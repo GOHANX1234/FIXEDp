@@ -12,6 +12,7 @@ import {
   ChevronRight,
   User,
   Database,
+  MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -63,6 +64,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       icon: <Users className={`${isCollapsed ? "mx-auto" : "mr-3"} h-5 w-5`} />,
       href: "/admin/resellers",
       active: location === "/admin/resellers",
+    },
+    {
+      title: "Online Updates",
+      icon: <MessageSquare className={`${isCollapsed ? "mx-auto" : "mr-3"} h-5 w-5`} />,
+      href: "/admin/online-updates",
+      active: location === "/admin/online-updates",
     },
     {
       title: "Referral Tokens",

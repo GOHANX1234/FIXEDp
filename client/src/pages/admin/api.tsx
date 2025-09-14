@@ -205,7 +205,7 @@ function EndpointSection({
 }
 
 export default function AdminApi() {
-  const [mainTab, setMainTab] = useState<'post' | 'get'>('post');
+  const [mainTab, setMainTab] = useState<'post' | 'get' | 'updates'>('post');
 
   const postEndpoint = {
     title: "Key Verification Endpoint",
@@ -269,6 +269,37 @@ Content-Type: application/json
     note: "GET endpoint only checks validity but doesn't register device. Use POST to register."
   };
 
+  const onlineUpdatesEndpoint = {
+    title: "Online Updates API",
+    method: "GET",
+    endpoint: "/api/updates",
+    requestCode: `GET /api/updates`,
+    responseCode: `[
+  {
+    "id": 1,
+    "title": "App Update Available",
+    "message": "A new version of the app is available with bug fixes and improvements.",
+    "buttonText": "Update Now",
+    "linkUrl": "https://yourapp.com/download",
+    "isActive": true,
+    "createdAt": "2025-09-14T06:00:00.000Z",
+    "updatedAt": "2025-09-14T06:00:00.000Z"
+  }
+]`,
+    requestParams: [],
+    responseParams: [
+      { name: "id", description: "Unique identifier for the update" },
+      { name: "title", description: "Update title/headline" },
+      { name: "message", description: "Update message content" },
+      { name: "buttonText", description: "Text for action button (optional)" },
+      { name: "linkUrl", description: "URL to open when button is clicked (optional)" },
+      { name: "isActive", description: "Boolean - if the update should be shown to users" },
+      { name: "createdAt", description: "ISO timestamp when update was created" },
+      { name: "updatedAt", description: "ISO timestamp when update was last modified" }
+    ],
+    note: "This endpoint returns all currently active updates that should be displayed to app users."
+  };
+
   const implementationExamples = {
     post: `// POST - Verifies and Registers Device
 async function verifyKey(key, deviceId, game) {
@@ -302,6 +333,25 @@ async function checkKey(key, deviceId, game) {
     console.error('Check failed:', data.message);
     return { isValid: false };
   }
+}`,
+    updates: `// Fetch Online Updates
+async function getOnlineUpdates() {
+  const response = await fetch('/api/updates');
+  const updates = await response.json();
+  
+  updates.forEach(update => {
+    if (update.isActive) {
+      console.log('Update:', update.title);
+      console.log('Message:', update.message);
+      
+      if (update.buttonText && update.linkUrl) {
+        console.log('Action:', update.buttonText, '→', update.linkUrl);
+        // You can create UI elements with the button and link
+      }
+    }
+  });
+  
+  return updates;
 }`
   };
 
@@ -329,6 +379,11 @@ async function checkKey(key, deviceId, game) {
               title="GET Method" 
               active={mainTab === 'get'} 
               onClick={() => setMainTab('get')} 
+            />
+            <TabButton 
+              title="Online Updates" 
+              active={mainTab === 'updates'} 
+              onClick={() => setMainTab('updates')} 
             />
           </div>
         </div>
@@ -370,6 +425,27 @@ async function checkKey(key, deviceId, game) {
                   <CodeSnippet 
                     title="JavaScript Implementation"
                     code={implementationExamples.get}
+                  />
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {mainTab === 'updates' && (
+            <>
+              <EndpointSection {...onlineUpdatesEndpoint} />
+              
+              <Card className="border border-purple-500/20">
+                <CardHeader className="p-4 bg-gradient-to-r from-purple-900/20 to-indigo-900/20 border-b border-border">
+                  <CardTitle className="text-base font-semibold bg-gradient-to-r from-purple-400 to-indigo-400 bg-clip-text text-transparent flex items-center">
+                    <Code className="h-4 w-4 mr-2 text-purple-400 flex-shrink-0" />
+                    Implementation Example
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4">
+                  <CodeSnippet 
+                    title="JavaScript Implementation"
+                    code={implementationExamples.updates}
                   />
                 </CardContent>
               </Card>

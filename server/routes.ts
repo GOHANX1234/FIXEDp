@@ -7,7 +7,9 @@ import {
   insertKeySchema, 
   keyVerificationSchema, 
   addCreditsSchema,
-  gameEnum
+  gameEnum,
+  insertOnlineUpdateSchema,
+  updateOnlineUpdateSchema
 } from "@shared/schema";
 import { nanoid } from "nanoid";
 import session from "express-session";
@@ -44,10 +46,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const isSecure = process.env.COOKIE_SECURE === "true" || isProduction;
   
   // For SameSite configuration
-  // When using secure=true and sameSite=none, this allows cross-site cookies
-  // necessary for authentication across different domains
-  const sameSiteOption: boolean | 'lax' | 'strict' | 'none' | undefined = 
-    isProduction ? 'none' : 'lax';
+  // Use 'lax' for better CSRF protection - blocks cross-site requests with credentials
+  // while still allowing same-site requests and top-level navigation
+  const sameSiteOption: boolean | 'lax' | 'strict' | 'none' | undefined = 'lax';
 
   // Handle domain for production
   const cookieDomain = isProduction && process.env.PUBLIC_URL 
@@ -173,6 +174,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     res.status(403).json({ message: 'Forbidden' });
   };
+
+  // CSRF protection middleware for admin write endpoints
+  const csrfProtection = (req: Request, res: Response, next: Function) => {
+    // Get the expected origin from environment or default to the request host
+    const isProduction = process.env.NODE_ENV === "production";
+    let expectedOrigin: string;
+    
+    if (isProduction && process.env.PUBLIC_URL) {
+      expectedOrigin = process.env.PUBLIC_URL.replace(/\/$/, ''); // Remove trailing slash
+    } else {
+      // In development, construct from request
+      expectedOrigin = `${req.protocol}://${req.get('host')}`;
+    }
+    
+    // Check Origin header first (preferred)
+    const origin = req.get('Origin');
+    if (origin) {
+      if (origin !== expectedOrigin) {
+        console.warn(`CSRF: Invalid origin - expected: ${expectedOrigin}, received: ${origin}`);
+        return res.status(403).json({ message: 'Forbidden: Invalid origin' });
+      }
+    } else {
+      // Fallback to Referer header if Origin is not present
+      const referer = req.get('Referer');
+      if (!referer) {
+        console.warn('CSRF: No Origin or Referer header found');
+        return res.status(403).json({ message: 'Forbidden: No origin header' });
+      }
+      
+      try {
+        const refererUrl = new URL(referer);
+        const refererOrigin = `${refererUrl.protocol}//${refererUrl.host}`;
+        
+        if (refererOrigin !== expectedOrigin) {
+          console.warn(`CSRF: Invalid referer - expected: ${expectedOrigin}, received: ${refererOrigin}`);
+          return res.status(403).json({ message: 'Forbidden: Invalid referer' });
+        }
+      } catch (error) {
+        console.warn('CSRF: Invalid referer header format');
+        return res.status(403).json({ message: 'Forbidden: Invalid referer format' });
+      }
+    }
+    
+    next();
+  };
+
+  // Combined middleware for admin write operations (CSRF + auth)
+  const adminWriteProtection = [isAdmin, csrfProtection];
 
   // Function to log authentication process
   const logAuthProcess = (method: string, user: any, session: any) => {
@@ -560,6 +609,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader('Content-Type', 'application/json');
       res.json(backup);
     } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Online Update routes
+  app.get('/api/admin/online-updates', isAdmin, async (req, res) => {
+    try {
+      const updates = await storage.getAllOnlineUpdates();
+      res.json(updates);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.post('/api/admin/online-updates', adminWriteProtection, async (req, res) => {
+    try {
+      const updateData = insertOnlineUpdateSchema.parse(req.body);
+      const update = await storage.createOnlineUpdate(updateData);
+      res.status(201).json({
+        success: true,
+        update
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.get('/api/admin/online-updates/:id', isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: 'Invalid update ID' });
+      }
+      
+      const update = await storage.getOnlineUpdate(id);
+      if (!update) {
+        return res.status(404).json({ message: 'Update not found' });
+      }
+      
+      res.json(update);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  app.put('/api/admin/online-updates/:id', adminWriteProtection, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: 'Invalid update ID' });
+      }
+      
+      const updateData = updateOnlineUpdateSchema.parse({ id, ...req.body });
+      const update = await storage.updateOnlineUpdate(id, updateData);
+      
+      if (!update) {
+        return res.status(404).json({ message: 'Update not found' });
+      }
+      
+      res.json({
+        success: true,
+        update
+      });
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
+    }
+  });
+
+  app.delete('/api/admin/online-updates/:id', adminWriteProtection, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: 'Invalid update ID' });
+      }
+      
+      const deleted = await storage.deleteOnlineUpdate(id);
+      if (!deleted) {
+        return res.status(404).json({ message: 'Update not found' });
+      }
+      
+      res.json({
+        success: true,
+        message: 'Update deleted successfully'
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  });
+
+  // Public API for apps to fetch active updates
+  app.get('/api/updates', async (req, res) => {
+    try {
+      const updates = await storage.getActiveOnlineUpdates();
+      res.json(updates);
+    } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   });

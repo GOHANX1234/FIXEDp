@@ -20,13 +20,33 @@ const corsOrigin = isProduction
   ? [process.env.CORS_ORIGIN || "https://fixpanel.onrender.com/"] // Allow configurable origin in production
   : true; // Allow all origins in development
 
-// Apply CORS middleware
-app.use(cors({
-  origin: corsOrigin,
-  credentials: true, // Allow cookies to be sent with requests
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// Apply CORS middleware with special handling for admin endpoints
+app.use((req, res, next) => {
+  // More restrictive CORS for admin endpoints
+  if (req.path.startsWith('/api/admin/')) {
+    // For admin endpoints, only allow same-origin requests in production
+    // In development, allow localhost origins only
+    const allowedAdminOrigin = isProduction 
+      ? (process.env.CORS_ORIGIN || "https://fixpanel.onrender.com/").replace(/\/$/, '')
+      : `${req.protocol}://${req.get('host')}`;
+    
+    cors({
+      origin: allowedAdminOrigin,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
+      optionsSuccessStatus: 200
+    })(req, res, next);
+  } else {
+    // Standard CORS for other endpoints
+    cors({
+      origin: corsOrigin,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization']
+    })(req, res, next);
+  }
+});
 
 // Parse JSON and URL-encoded bodies
 app.use(express.json());

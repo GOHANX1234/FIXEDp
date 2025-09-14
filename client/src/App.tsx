@@ -12,6 +12,7 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import AdminResellers from "@/pages/admin/resellers";
 import AdminResellerKeys from "@/pages/admin/reseller-keys";
 import AdminTokens from "@/pages/admin/tokens";
+import AdminOnlineUpdate from "@/pages/admin/online-update";
 import AdminApi from "@/pages/admin/api";
 import DatabaseBackup from "@/pages/admin/database-backup";
 import ResellerDashboard from "@/pages/reseller/dashboard";
@@ -32,6 +33,7 @@ function Router() {
       <ProtectedRoute path="/admin" component={AdminDashboard} role="admin" />
       <ProtectedRoute path="/admin/resellers" component={AdminResellers} role="admin" />
       <ProtectedRoute path="/admin/resellers/:id/keys" component={AdminResellerKeys} role="admin" />
+      <ProtectedRoute path="/admin/online-updates" component={AdminOnlineUpdate} role="admin" />
       <ProtectedRoute path="/admin/tokens" component={AdminTokens} role="admin" />
       <ProtectedRoute path="/admin/database-backup" component={DatabaseBackup} role="admin" />
       <ProtectedRoute path="/admin/api" component={AdminApi} role="admin" />

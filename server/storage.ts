@@ -4,7 +4,8 @@ import {
   Reseller, InsertReseller, resellers,
   Key, InsertKey, keys, 
   Device, InsertDevice, devices,
-  Game, keyStatusEnum, KeyStatus
+  Game, keyStatusEnum, KeyStatus,
+  OnlineUpdate, InsertOnlineUpdate, UpdateOnlineUpdate
 } from "@shared/schema";
 import { nanoid } from "nanoid";
 import * as fs from 'fs';
@@ -42,6 +43,14 @@ export interface IStorage {
   getDevicesByKeyId(keyId: number): Promise<Device[]>;
   removeDevice(deviceId: string, keyId: number): Promise<boolean>;
   
+  // Online update methods
+  createOnlineUpdate(update: InsertOnlineUpdate): Promise<OnlineUpdate>;
+  getAllOnlineUpdates(): Promise<OnlineUpdate[]>;
+  getOnlineUpdate(id: number): Promise<OnlineUpdate | undefined>;
+  updateOnlineUpdate(id: number, update: Partial<UpdateOnlineUpdate>): Promise<OnlineUpdate | undefined>;
+  deleteOnlineUpdate(id: number): Promise<boolean>;
+  getActiveOnlineUpdates(): Promise<OnlineUpdate[]>;
+  
   // Stats
   getStats(): Promise<{
     totalResellers: number;
@@ -56,12 +65,14 @@ export class MemStorage implements IStorage {
   private resellers: Map<number, Reseller>;
   private keys: Map<number, Key>;
   private devices: Map<number, Device>;
+  private onlineUpdates: Map<number, OnlineUpdate>;
   
   private adminId: number = 1;
   private tokenId: number = 1;
   private resellerId: number = 1;
   private keyId: number = 1;
   private deviceId: number = 1;
+  private onlineUpdateId: number = 1;
 
   constructor() {
     this.admins = new Map();
@@ -69,12 +80,52 @@ export class MemStorage implements IStorage {
     this.resellers = new Map();
     this.keys = new Map();
     this.devices = new Map();
+    this.onlineUpdates = new Map();
     
     // Create default admin
     this.createAdmin({
       username: "admin",
       password: "admin123"
     });
+    
+    // Load online updates from file if it exists
+    this.loadOnlineUpdatesFromFile();
+  }
+
+  // Load online updates from JSON file on startup
+  private loadOnlineUpdatesFromFile(): void {
+    try {
+      const filePath = path.join('.', 'data', 'online_updates.json');
+      if (fs.existsSync(filePath)) {
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+        const updates = JSON.parse(fileContent);
+        
+        if (Array.isArray(updates)) {
+          updates.forEach((update: any) => {
+            // Convert date strings back to Date objects
+            const onlineUpdate: OnlineUpdate = {
+              ...update,
+              createdAt: new Date(update.createdAt),
+              updatedAt: new Date(update.updatedAt)
+            };
+            
+            this.onlineUpdates.set(onlineUpdate.id, onlineUpdate);
+            
+            // Update the ID counter to prevent conflicts
+            if (onlineUpdate.id >= this.onlineUpdateId) {
+              this.onlineUpdateId = onlineUpdate.id + 1;
+            }
+          });
+          
+          console.log(`Loaded ${updates.length} online updates from file`);
+        }
+      } else {
+        console.log('No online updates file found, starting with empty updates');
+      }
+    } catch (error: any) {
+      console.error(`Error loading online updates from file: ${error.message}`);
+      // Continue with empty updates if loading fails
+    }
   }
 
   // Admin methods
@@ -310,6 +361,90 @@ export class MemStorage implements IStorage {
     }
     
     return false;
+  }
+
+  // Online Update methods
+  async createOnlineUpdate(insertUpdate: InsertOnlineUpdate): Promise<OnlineUpdate> {
+    const id = this.onlineUpdateId++;
+    const now = new Date();
+    const update: OnlineUpdate = {
+      ...insertUpdate,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.onlineUpdates.set(id, update);
+    
+    // Save to JSON file for persistence
+    await this.saveOnlineUpdatesToFile();
+    
+    return update;
+  }
+
+  async getAllOnlineUpdates(): Promise<OnlineUpdate[]> {
+    return Array.from(this.onlineUpdates.values()).sort((a, b) => 
+      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }
+
+  async getOnlineUpdate(id: number): Promise<OnlineUpdate | undefined> {
+    return this.onlineUpdates.get(id);
+  }
+
+  async updateOnlineUpdate(id: number, updateData: Partial<UpdateOnlineUpdate>): Promise<OnlineUpdate | undefined> {
+    const existingUpdate = this.onlineUpdates.get(id);
+    if (existingUpdate) {
+      const updatedUpdate: OnlineUpdate = {
+        ...existingUpdate,
+        ...updateData,
+        id: existingUpdate.id, // Ensure id doesn't change
+        createdAt: existingUpdate.createdAt, // Preserve creation date
+        updatedAt: new Date()
+      };
+      this.onlineUpdates.set(id, updatedUpdate);
+      
+      // Save to JSON file for persistence
+      await this.saveOnlineUpdatesToFile();
+      
+      return updatedUpdate;
+    }
+    return undefined;
+  }
+
+  async deleteOnlineUpdate(id: number): Promise<boolean> {
+    const deleted = this.onlineUpdates.delete(id);
+    if (deleted) {
+      // Save to JSON file for persistence
+      await this.saveOnlineUpdatesToFile();
+    }
+    return deleted;
+  }
+
+  async getActiveOnlineUpdates(): Promise<OnlineUpdate[]> {
+    return Array.from(this.onlineUpdates.values())
+      .filter(update => update.isActive)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  private async saveOnlineUpdatesToFile(): Promise<void> {
+    try {
+      const dataDir = path.join('.', 'data');
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      
+      const filePath = path.join(dataDir, 'online_updates.json');
+      const updates = Array.from(this.onlineUpdates.values()).map(update => ({
+        ...update,
+        createdAt: update.createdAt.toISOString(),
+        updatedAt: update.updatedAt.toISOString()
+      }));
+      
+      fs.writeFileSync(filePath, JSON.stringify(updates, null, 2));
+      console.log('Saved online updates to file');
+    } catch (error: any) {
+      console.error(`Error saving online updates to file: ${error.message}`);
+    }
   }
 
   // Stats methods
