@@ -27,7 +27,7 @@ app.use((req, res, next) => {
     // For admin endpoints, only allow same-origin requests in production
     // In development, allow localhost origins only
     const allowedAdminOrigin = isProduction 
-      ? (process.env.CORS_ORIGIN || "https://fixpanel.onrender.com/").replace(/\/$/, '')
+      ? (process.env.CORS_ORIGIN || "https://fixedp.onrender.com/").replace(/\/$/, '')
       : `${req.protocol}://${req.get('host')}`;
     
     cors({
