@@ -1,10 +1,12 @@
 [
   {
-    "title": "Test Update",
-    "message": "Test message",
-    "isActive": true,
-    "id": 1,
-    "createdAt": "2025-09-14T06:20:15.051Z",
-    "updatedAt": "2025-09-14T06:20:15.051Z"
+    "title": "Gohan",
+    "message": "Gohan",
+    "buttonText": "Gohan",
+    "linkUrl": "https://phub.com",
+    "isActive": false,
+    "id": 2,
+    "createdAt": "2025-09-14T06:27:02.010Z",
+    "updatedAt": "2025-09-14T06:27:13.982Z"
   }
 ]
